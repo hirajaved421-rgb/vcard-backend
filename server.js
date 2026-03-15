@@ -6,180 +6,232 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-/* ===============================
-   SUPABASE CONNECTION
-================================ */
+/* =========================
+   SUPABASE CONFIG
+========================= */
 
 const SUPABASE_URL = "https://eivrsuzrvldljpecavqv.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpdnJzdXpydmxkbGpwZWNhdnF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NDg5NTMsImV4cCI6MjA4OTAyNDk1M30.9zmECLy60FUsZWnGm37ckAzvj-q1RnuHG2-5G2Ks1UY";
+const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ===============================
-   CREATE NEW VCARD
-================================ */
+/* =========================
+   GENERATE CARD ID
+========================= */
+
+function generateId() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+/* =========================
+   CREATE VCARD
+========================= */
 
 app.post("/api/vcard", async (req, res) => {
   try {
+    const id = generateId();
 
-    const id = Math.random()
-      .toString(36)
-      .substring(2, 8)
-      .toUpperCase();
+    let password_hash = null;
+
+    if (req.body.password) {
+      password_hash = await bcrypt.hash(req.body.password, 10);
+    }
 
     const payload = {
       id,
-      firstName: req.body.firstName || null,
-      lastName: req.body.lastName || null,
-      fullName: req.body.fullName || null,
-      organization: req.body.organization || null,
-      jobTitle: req.body.jobTitle || null,
-      birthday: req.body.birthday || null,
-      note: req.body.note || null,
-      photo: req.body.photo || null,
-      fields: req.body.fields || null
+      firstName: req.body.firstName || "",
+      lastName: req.body.lastName || "",
+      fullName: req.body.fullName || "",
+      organization: req.body.organization || "",
+      jobTitle: req.body.jobTitle || "",
+      birthday: req.body.birthday || "",
+      note: req.body.note || "",
+      photo: req.body.photo || "",
+      fields: req.body.fields || [],
+      password_hash,
+      created_at: new Date()
     };
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("vcards")
-      .insert([payload])
-      .select();
+      .insert([payload]);
 
     if (error) {
-      console.error("Supabase insert error:", error);
-      return res.status(500).json({ error: error.message });
+      console.log(error);
+      return res.status(500).json(error);
     }
 
     res.json({ id });
 
   } catch (err) {
-    console.error("Server error:", err);
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    res.status(500).send("Server error");
   }
 });
 
-/* ===============================
-   GET VCARD JSON
-================================ */
+/* =========================
+   LOGIN FOR EDIT
+========================= */
+
+app.post("/api/vcard/:id/login", async (req, res) => {
+
+  const { password } = req.body;
+
+  const { data, error } = await supabase
+    .from("vcards")
+    .select("*")
+    .eq("id", req.params.id)
+    .single();
+
+  if (error || !data) return res.status(404).send("Card not found");
+
+  const valid = await bcrypt.compare(password, data.password_hash);
+
+  if (!valid) return res.status(401).send("Invalid password");
+
+  res.json({ success: true });
+
+});
+
+/* =========================
+   UPDATE CARD
+========================= */
+
+app.put("/api/vcard/:id", async (req, res) => {
+
+  const { error } = await supabase
+    .from("vcards")
+    .update(req.body)
+    .eq("id", req.params.id);
+
+  if (error) {
+    console.log(error);
+    return res.status(500).json(error);
+  }
+
+  res.json({ success: true });
+
+});
+
+/* =========================
+   RESET PASSWORD REQUEST
+========================= */
+
+app.post("/api/vcard/:id/reset-request", async (req, res) => {
+
+  const token = crypto.randomBytes(32).toString("hex");
+
+  await supabase
+    .from("vcards")
+    .update({ edit_token: token })
+    .eq("id", req.params.id);
+
+  res.json({
+    reset_url: `https://oiwistudio.com/pages/vcard-reset?token=${token}`
+  });
+
+});
+
+/* =========================
+   RESET PASSWORD
+========================= */
+
+app.post("/api/vcard/reset/:token", async (req, res) => {
+
+  const hash = await bcrypt.hash(req.body.password, 10);
+
+  await supabase
+    .from("vcards")
+    .update({
+      password_hash: hash,
+      edit_token: null
+    })
+    .eq("edit_token", req.params.token);
+
+  res.json({ success: true });
+
+});
+
+/* =========================
+   GET CARD JSON
+========================= */
 
 app.get("/api/vcard/:id/json", async (req, res) => {
 
-  try {
+  const { data, error } = await supabase
+    .from("vcards")
+    .select("*")
+    .eq("id", req.params.id)
+    .single();
 
-    const { data, error } = await supabase
-      .from("vcards")
-      .select("*")
-      .eq("id", req.params.id)
-      .single();
+  if (error || !data) return res.status(404).send("Not found");
 
-    if (error || !data) {
-      return res.status(404).send("Card not found");
-    }
-
-    res.json(data);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Server error");
-  }
+  res.json(data);
 
 });
 
-/* ===============================
-   DOWNLOAD VCARD (.VCF)
-================================ */
+/* =========================
+   DOWNLOAD VCF
+========================= */
 
 app.get("/api/vcard/:id/vcf", async (req, res) => {
 
-  try {
+  const { data } = await supabase
+    .from("vcards")
+    .select("*")
+    .eq("id", req.params.id)
+    .single();
 
-    const { data, error } = await supabase
-      .from("vcards")
-      .select("*")
-      .eq("id", req.params.id)
-      .single();
+  if (!data) return res.status(404).send("Not found");
 
-    if (error || !data) {
-      return res.status(404).send("Card not found");
-    }
-
-    let vcf = `
+  const vcf = `
 BEGIN:VCARD
 VERSION:3.0
-FN:${data.fullName || ""}
-ORG:${data.organization || ""}
-TITLE:${data.jobTitle || ""}
+FN:${data.fullName}
+ORG:${data.organization}
+TITLE:${data.jobTitle}
+END:VCARD
 `;
 
-    if (Array.isArray(data.fields)) {
+  res.setHeader("Content-Type", "text/vcard");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${data.fullName}.vcf"`
+  );
 
-      data.fields.forEach(field => {
-
-        if (field.type === "phone")
-          vcf += `TEL:${field.value}\n`;
-
-        if (field.type === "email")
-          vcf += `EMAIL:${field.value}\n`;
-
-        if (field.type === "url")
-          vcf += `URL:${field.value}\n`;
-
-        if (field.type === "address")
-          vcf += `ADR:;;${field.value};;;;\n`;
-
-      });
-
-    }
-
-    vcf += "END:VCARD";
-
-    res.setHeader("Content-Type", "text/vcard");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${data.fullName || "contact"}.vcf"`
-    );
-
-    res.send(vcf);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Server error");
-  }
+  res.send(vcf);
 
 });
 
-/* ===============================
-   QR CODE GENERATOR
-================================ */
+/* =========================
+   QR CODE
+========================= */
 
 app.get("/api/vcard/:id/qr", async (req, res) => {
 
-  try {
+  const url = `https://oiwistudio.com/pages/vcard-preview?card=${req.params.id}`;
 
-    const url =
-      `https://oiwistudio.com/pages/vcard-preview?card=${req.params.id}`;
+  const qr = await QRCode.toDataURL(url);
 
-    const qr = await QRCode.toDataURL(url);
-
-    res.send(`<img src="${qr}" />`);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("QR generation error");
-  }
+  res.send(`<img src="${qr}" />`);
 
 });
 
-/* ===============================
+/* =========================
+   HEALTH CHECK
+========================= */
+
+app.get("/", (req, res) => {
+  res.send("vCard backend running");
+});
+
+/* =========================
    START SERVER
-================================ */
+========================= */
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(3000, () => {
+  console.log("Server running on port 3000");
 });

@@ -14,7 +14,7 @@ app.use(express.json());
 ========================= */
 
 const SUPABASE_URL = "https://eivrsuzrvldljpecavqv.supabase.co";
-const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpdnJzdXpydmxkbGpwZWNhdnF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NDg5NTMsImV4cCI6MjA4OTAyNDk1M30.9zmECLy60FUsZWnGm37ckAzvj-q1RnuHG2-5G2Ks1UY";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 

@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import QRCode from "qrcode";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();

@@ -1,7 +1,9 @@
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const SECRET = "my-secret-key"
 import express from "express";
 import cors from "cors";
 import QRCode from "qrcode";
-import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
@@ -30,7 +32,7 @@ function generateId() {
    CREATE VCARD
 ========================= */
 
-app.post("/api/vcard", async (req, res) => {
+    app.post("/api/vcard", async (req, res) => {
   try {
     const id = generateId();
 
@@ -71,7 +73,6 @@ app.post("/api/vcard", async (req, res) => {
     res.status(500).send("Server error");
   }
 });
-
 /* =========================
    LOGIN FOR EDIT
 ========================= */

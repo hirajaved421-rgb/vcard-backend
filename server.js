@@ -89,7 +89,12 @@ app.post("/api/vcard/:id/login", async (req, res) => {
 
   if (error || !data) return res.status(404).send("Card not found");
 
-  const valid = await bcrypt.compare(password, data.password_hash);
+  console.log("Entered password:", password);
+console.log("Stored hash:", data.password_hash);
+
+const valid = await bcrypt.compare(password, data.password_hash);
+
+console.log("Match result:", valid);
 
   if (!valid) return res.status(401).send("Invalid password");
 

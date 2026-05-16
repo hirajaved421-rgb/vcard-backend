@@ -248,8 +248,11 @@ app.get("/api/vcard/:id/vcf", async (req, res) => {
 ========================= */
 app.get("/api/vcard/:id/qr", async (req, res) => {
   const url = `https://oiwistudio.com/pages/vcard-preview?card=${req.params.id}`;
-  const qr  = await QRCode.toDataURL(url);
-  res.send(`<html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff"><img src="${qr}" style="max-width:300px"></body></html>`);
+  // Return PNG image directly so it works in <img> tags
+  const qrBuffer = await QRCode.toBuffer(url, { type: "png", width: 300, margin: 2 });
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.send(qrBuffer);
 });
 
 /* =========================

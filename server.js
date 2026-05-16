@@ -191,11 +191,23 @@ app.get("/api/vcard/:id/vcf", async (req, res) => {
 
   if (data.note) lines.push(`NOTE:${esc(data.note)}`);
 
-  // Photo
+  // Photo — chunked into 75-char lines for iOS compatibility
   if (data.photo && data.photo.startsWith("data:image")) {
     const base64 = data.photo.split(",")[1];
     const type   = (data.photo.match(/data:image\/(\w+)/) || [])[1]?.toUpperCase() || "JPEG";
-    lines.push(`PHOTO;ENCODING=b;TYPE=${type}:${base64}`);
+    // iOS requires base64 split into 75-char lines with continuation whitespace
+    const chunkSize = 75;
+    const firstLine = `PHOTO;ENCODING=b;TYPE=${type}:`;
+    const chunks = [];
+    // First chunk fits on the property line
+    const firstChunkSize = chunkSize - firstLine.length;
+    chunks.push(firstLine + base64.substring(0, firstChunkSize));
+    // Remaining chunks start with a space (continuation line)
+    for (let i = firstChunkSize; i < base64.length; i += chunkSize) {
+      chunks.push(" " + base64.substring(i, i + chunkSize));
+    }
+    lines.push(chunks.join("
+"));
   }
 
   // ✅ ALL dynamic fields: phone, email, website, address

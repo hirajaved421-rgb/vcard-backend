@@ -40,13 +40,14 @@ app.post("/api/vcard", async (req, res) => {
       firstName:    req.body.firstName    || "",
       lastName:     req.body.lastName     || "",
       fullName:     req.body.fullName     || "",
+      title:        req.body.title        || "",
+      suffix:       req.body.suffix       || "",
       organization: req.body.organization || "",
       jobTitle:     req.body.jobTitle     || "",
       birthday:     req.body.birthday     || "",
       note:         req.body.note         || "",
       photo:        req.body.photo        || "",
       email_owner:  req.body.email_owner  || "", // ✅ FIX 5
-      cardName:     req.body.cardName     || "", // ✅ FIX 6
       fields:       req.body.fields       || [],
       password_hash,
       created_at:   new Date()
@@ -173,7 +174,7 @@ app.get("/api/vcard/:id/vcf", async (req, res) => {
   lines.push("BEGIN:VCARD");
   lines.push("VERSION:3.0");
   lines.push(`FN:${esc(data.fullName)}`);
-  lines.push(`N:${esc(data.lastName)};${esc(data.firstName)};;;`);
+  lines.push(`N:${esc(data.lastName)};${esc(data.firstName)};${esc(data.title || "")};${esc(data.suffix || "")};`);
 
   if (data.organization) lines.push(`ORG:${esc(data.organization)}`);
   if (data.jobTitle)     lines.push(`TITLE:${esc(data.jobTitle)}`);

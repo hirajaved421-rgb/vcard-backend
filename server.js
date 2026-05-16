@@ -191,21 +191,26 @@ app.get("/api/vcard/:id/vcf", async (req, res) => {
 
   if (data.note) lines.push(`NOTE:${esc(data.note)}`);
 
-  // Photo — chunked for iOS compatibility
-  if (data.photo && data.photo.startsWith("data:image")) {
-    const base64 = data.photo.split(",")[1];
-    const type = (data.photo.match(/data:image\/([a-z]+)/) || [])[1];
-    const imgType = type ? type.toUpperCase() : "JPEG";
-    const header = "PHOTO;ENCODING=b;TYPE=" + imgType + ":";
-    const chunkSize = 75;
-    let photoLine = header;
-    const remaining = base64;
-    const firstLen = chunkSize - header.length;
-    photoLine += remaining.substring(0, firstLen);
-    for (let i = firstLen; i < remaining.length; i += chunkSize) {
-      photoLine += "\r\n " + remaining.substring(i, i + chunkSize);
+  // Photo — URL (shows on iPhone preview) or base64 fallback
+  if (data.photo) {
+    if (data.photo.startsWith("http")) {
+      // ✅ Hosted URL — iOS shows photo in preview before saving
+      lines.push("PHOTO;VALUE=URL:" + data.photo);
+    } else if (data.photo.startsWith("data:image")) {
+      // Fallback: base64 chunked for compatibility
+      const base64 = data.photo.split(",")[1];
+      const type = (data.photo.match(/data:image\/([a-z]+)/) || [])[1];
+      const imgType = type ? type.toUpperCase() : "JPEG";
+      const header = "PHOTO;ENCODING=b;TYPE=" + imgType + ":";
+      const chunkSize = 75;
+      let photoLine = header;
+      const firstLen = chunkSize - header.length;
+      photoLine += base64.substring(0, firstLen);
+      for (let i = firstLen; i < base64.length; i += chunkSize) {
+        photoLine += "\r\n " + base64.substring(i, i + chunkSize);
+      }
+      lines.push(photoLine);
     }
-    lines.push(photoLine);
   }
 
   // ✅ ALL dynamic fields: phone, email, website, address

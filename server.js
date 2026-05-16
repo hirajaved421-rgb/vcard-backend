@@ -191,23 +191,21 @@ app.get("/api/vcard/:id/vcf", async (req, res) => {
 
   if (data.note) lines.push(`NOTE:${esc(data.note)}`);
 
-  // Photo — chunked into 75-char lines for iOS compatibility
+  // Photo — chunked for iOS compatibility
   if (data.photo && data.photo.startsWith("data:image")) {
     const base64 = data.photo.split(",")[1];
-    const type   = (data.photo.match(/data:image\/(\w+)/) || [])[1]?.toUpperCase() || "JPEG";
-    // iOS requires base64 split into 75-char lines with continuation whitespace
+    const type = (data.photo.match(/data:image\/([a-z]+)/) || [])[1];
+    const imgType = type ? type.toUpperCase() : "JPEG";
+    const header = "PHOTO;ENCODING=b;TYPE=" + imgType + ":";
     const chunkSize = 75;
-    const firstLine = `PHOTO;ENCODING=b;TYPE=${type}:`;
-    const chunks = [];
-    // First chunk fits on the property line
-    const firstChunkSize = chunkSize - firstLine.length;
-    chunks.push(firstLine + base64.substring(0, firstChunkSize));
-    // Remaining chunks start with a space (continuation line)
-    for (let i = firstChunkSize; i < base64.length; i += chunkSize) {
-      chunks.push(" " + base64.substring(i, i + chunkSize));
+    let photoLine = header;
+    const remaining = base64;
+    const firstLen = chunkSize - header.length;
+    photoLine += remaining.substring(0, firstLen);
+    for (let i = firstLen; i < remaining.length; i += chunkSize) {
+      photoLine += "\r\n " + remaining.substring(i, i + chunkSize);
     }
-    lines.push(chunks.join("
-"));
+    lines.push(photoLine);
   }
 
   // ✅ ALL dynamic fields: phone, email, website, address
